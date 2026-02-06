@@ -9,15 +9,18 @@ export const revalidate = 0;
 export const dynamic = 'force-dynamic'
 
 export default function Home() {
-  useEffect(() => {
-    const token = localStorage.getItem("token");
 
-  if (!token) {
-    window.location.href = "/register";
-  }
-}, []);
-  
-  const inputRef = useRef()
+  const [token, setToken] = useState("");
+
+  useEffect(() => {
+    setToken(localStorage.getItem("token") || "");
+  }, []);
+
+  useEffect(() => {
+  if (token) fetchFiles();
+}, [token]);
+
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFile, setSelectedFile] = useState()
   const [files, setFiles] = useState<any[]>([]);
   const [sortBy, setSortBy] = useState('');
@@ -71,32 +74,37 @@ export default function Home() {
   };
 
   const fetchFiles = () => {
-    fetch("http://localhost:8080/api/getFilesByUser", {
-      method: "POST",
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        token: token
-      }),
-      cache: 'no-store'
+  if (!token) return; // ← ВАЖНО
+
+  fetch("http://localhost:8080/api/getFilesByUser", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      token: token,
+    }),
+    cache: "no-store",
+  })
+    .then((res) => res.json())
+    .then((res) => {
+      let sortedFiles = res;
+
+      if (sortBy === "name") {
+        sortedFiles = res.slice().sort((a: any, b: any) => {
+          const fileNameA = a.filepath.split("/").pop().toLowerCase();
+          const fileNameB = b.filepath.split("/").pop().toLowerCase();
+          return fileNameA.localeCompare(fileNameB);
+        });
+      }
+
+      setFiles(sortedFiles);
     })
-      .then((res) => res.json())
-      .then((res) => {
-        let sortedFiles = res;
-        if (sortBy === 'name') {
-          sortedFiles = res.slice().sort((a: any, b: any) => {
-            const fileNameA = a.filepath.split('/').pop().toLowerCase();
-            const fileNameB = b.filepath.split('/').pop().toLowerCase();
-            return fileNameA.localeCompare(fileNameB);
-          });
-        }
-        setFiles(sortedFiles);
-      })
-      .catch(error => {
-        console.error('Ошибка получения файлов:', error);
-      });
-  };
+    .catch((error) => {
+      console.error("Ошибка получения файлов:", error);
+    });
+};
+
 
   const handleSearchElements = (e: any) => {
     const value = e.target.value;
@@ -124,7 +132,7 @@ export default function Home() {
     setSortBy(selectedSortBy);
   };
 
-  
+
 
   // const onSave = () => {
   //     let data = new FormData()
@@ -138,7 +146,7 @@ export default function Home() {
   //     })
   // }
   return (
-    
+
     <div className="w-screen h-full bg-grayy absolute overflow-visible">
 
       <div className="w-full h-10q bg-grayy float-start">
@@ -191,35 +199,35 @@ export default function Home() {
           <option value="name" className="w-1/5 h-1/3 1300:min-w-130 min-w-93 min-h-57 max-h-68 hover:bg-bordergrayy transition cursor-pointer text-white mt-4 bg-lightgrayy italic float-start lg:text-xl md:text-xs font-bold sm:text-xs">Названию</option>
         </select>
         <div className="w-full mx-auto mt-10 flex text-white flex-wrap">
-        {Array.isArray(files) && files.length > 0 ? (
-          files.map((file, index) => {
-            const filePath = file.filepath;
-            const fileName = filePath.split('/').pop();
-            const extensionIndex = fileName.lastIndexOf('.');
-            const fileNameWithoutExtension = fileName.substring(0, extensionIndex);
-            const fileExtension = fileName.substring(extensionIndex).toLowerCase();
+          {Array.isArray(files) && files.length > 0 ? (
+            files.map((file, index) => {
+              const filePath = file.filepath;
+              const fileName = filePath.split('/').pop();
+              const extensionIndex = fileName.lastIndexOf('.');
+              const fileNameWithoutExtension = fileName.substring(0, extensionIndex);
+              const fileExtension = fileName.substring(extensionIndex).toLowerCase();
 
-            let truncatedFileName = fileNameWithoutExtension;
-            if (truncatedFileName.length > 6) {
-              truncatedFileName = truncatedFileName.substring(0, 6) + '...';
-            }
+              let truncatedFileName = fileNameWithoutExtension;
+              if (truncatedFileName.length > 6) {
+                truncatedFileName = truncatedFileName.substring(0, 6) + '...';
+              }
 
-            const title = truncatedFileName + (fileExtension.startsWith('.') ? fileExtension : `.${fileExtension}`);
+              const title = truncatedFileName + (fileExtension.startsWith('.') ? fileExtension : `.${fileExtension}`);
 
-            const matchesSearch = title.toLowerCase().includes(searchItem.toLowerCase());
+              const matchesSearch = title.toLowerCase().includes(searchItem.toLowerCase());
 
-            return matchesSearch ? (
-              <TopSite key={index} icon={getFileIcon(fileExtension)} title={title} onClick={() => window.location.href = `http://localhost:8080/download?fileid=${file.id}`} className='mt-10'/>
-            ) : null;
-          })
-        ) : (
-          <p className="text-lg text-white font-mono">No files available</p>
-        )}
+              return matchesSearch ? (
+                <TopSite key={index} icon={getFileIcon(fileExtension)} title={title} onClick={() => window.location.href = `http://localhost:8080/download?fileid=${file.id}`} className='mt-10' />
+              ) : null;
+            })
+          ) : (
+            <p className="text-lg text-white font-mono">No files available</p>
+          )}
 
+        </div>
       </div>
-      </div>
 
-      
+
     </div>
   );
 }
